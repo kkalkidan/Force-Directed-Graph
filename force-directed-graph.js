@@ -1,74 +1,88 @@
 d3.json ("data.json").get(function(error, data){
   console.log(data)
 
-  width = 900;
-  height = 900;
+  var width = 800;
+  var height = 800;
 
 // change type to object
-const links = data.links.map(d => Object.create(d));
-const nodes = data.nodes.map(d => Object.create(d));
+var links = data.links.map(d => Object.create(d));
+var nodes = data.nodes.map(d => Object.create(d));
+
+
 
 //assign random position to each node
   nodes.forEach((d)=> {
 
-    d.x = Math.random() * width
-    d.y = Math.random() * height
+    d.x = Math.random() * width/2
+    d.y = Math.random() * height/2
     d.disp = [0, 0]
 
-    return d
+
   })
 
- t = 80
 
- var iteration = 10000;
 
+var t;
  var color = d3.scaleOrdinal(d3.schemeCategory10);
 
- k = Math.sqrt(width * height / nodes.length)
+// attractive force
+ var attractive = function(d, k) { return d*d/k }
 
- var attractive = function(d, k) {return (x*x)/2}
+// repulsive force
+ var repulsive = function(d, k) { return k*k/d }
 
- var repulsive = function(d, k) {return (Math.pow(k, 2)) / x}
+
+ var iteration =  500;
 
 
- for (var i = 0; i < iteration; i++){
+ var k = Math.sqrt(width * height / nodes.length)
 
-     // console.log(i)
+ var t =  width/10
 
-     nodes.forEach((d)=>{
 
-       calculateDispByRepulsive(d)
 
-     })
 
-    for (e in links){
+function Iter(iteration) {
 
-      calculateDispByAttractive(links[e]);
+
+   for (var i = 0; i < iteration; i++){
+
+       // console.log(i)
+       nodes.forEach((n)=>
+       {
+         n.disp = [0,0]
+       })
+
+       nodes.forEach((d)=>{
+
+         calculateDispByRepulsive(d)
+
+       })
+
+      for (e in links){
+
+        calculateDispByAttractive(links[e]);
+
+      }
+
+
+      nodes.forEach((d)=> {
+
+         updatePosition(d)
+
+
+       })
+
+     t -= t/(iteration+1)
 
     }
 
-    nodes.forEach((d)=> {
-
-       updatePosition(d)
-
-     })
-
-     cool();
-     // console.log(i)
-
-
-
-  }
-
-
-  // console.log(links, nodes)
-
+}
 
   const svg = d3.select('body').append('svg').attr("width", "100%").attr("height", "100%")
                  // .attr("viewBox", [-width/2, -height / 2, width, height]);
 
-  const link = svg.append("g")
-      .attr("stroke", "#999")
+  var link = svg.append("g")
       .attr("stroke-opacity", 0.6)
       .selectAll("line")
       .data(links)
@@ -78,15 +92,15 @@ const nodes = data.nodes.map(d => Object.create(d));
       .attr("y1", d => {return nodes[obtainNodeIndex(d.source)].y})
       .attr("x2", d => {return nodes[obtainNodeIndex(d.target)].x})
       .attr("y2", d => {return nodes[obtainNodeIndex(d.target)].y})
-      .attr("stroke", (d)=> {return color(d.target)})
+      .attr("stroke", "#777")
 
-  const node = svg.append("g")
+  var node = svg.append("g")
       .attr("stroke", "#fff")
-      .attr("stroke-width", 1.5)
+      .attr("stroke-width", 2)
       .selectAll("circle")
       .data(nodes)
       .enter().append("circle")
-      .attr("r", 5)
+      .attr("r", 7)
       .attr("fill", function(d) { return color(d.group)})
       .attr("cx", (d)=> { return d.x})
       .attr("cy", (d)=> { return d.y})
@@ -96,7 +110,31 @@ const nodes = data.nodes.map(d => Object.create(d));
         .on("end", dragended))
 
 
-  // ticked()
+
+  Iter(iteration)
+   // first iteration
+
+// Used timer for dynamically loading the graph to reveal the tuning process from the
+// initial status to a stable result
+  var timer = d3.timer(ticked);
+
+  function  ticked() {
+
+    node
+      .transition()
+        .duration(100)
+        .attr("cx", d => d.x)
+        .attr("cy", d => d.y)
+    link
+          .transition()
+          .duration(100)
+          .attr("x1", d => {return nodes[obtainNodeIndex(d.source)].x})
+          .attr("y1", d => {return nodes[obtainNodeIndex(d.source)].y})
+          .attr("x2", d => {return nodes[obtainNodeIndex(d.target)].x})
+          .attr("y2", d => {return nodes[obtainNodeIndex(d.target)].y})
+
+   }
+
 
   node.append("title")
       .html(d => {return d.id})
@@ -104,83 +142,53 @@ const nodes = data.nodes.map(d => Object.create(d));
 
   function dragstarted(d) {
 
-    if (!d3.event.active)
-       d.fx = d.x;
-       d.fy = d.y;
+
+    if (!d3.event.active) timer.stop()
+     d.fx = d.x;
+     d.fy = d.y;
   }
 
   function dragged(d) {
-      d.x = d3.event.x, d.y = d3.event.y;
-      d3.select(this).attr("cx", d.x).attr("cy", d.y);
 
-      link.filter(function(l) { return l.source === d.id; }).attr("x1", d.x).attr("y1", d.y);
-      link.filter(function(l) { return l.target === d.id; }).attr("x2", d.x).attr("y2", d.y);
 
-      nodes.forEach((n)=> {
-        if (n.id != d.id) updatePosition(n)
-      })
+    d.fx = d3.event.x
+    d.fy = d3.event.y
+    d3.select(this).attr("cx", d.fx).attr("cy", d.fy);
 
-      node
-          .attr("cx", d => d.x)
-          .attr("cy", d => d.y)
 
-      link
-        .attr("x1", d => {return nodes[obtainNodeIndex(d.source)].x})
-        .attr("y1", d => {return nodes[obtainNodeIndex(d.source)].y})
-        .attr("x2", d => {return nodes[obtainNodeIndex(d.target)].x})
-        .attr("y2", d => {return nodes[obtainNodeIndex(d.target)].y})
+    link.filter(function(l) { return l.source === d.id; }).transition().duration(0).attr("x1", d.fx).attr("y1", d.fy);
+    link.filter(function(l) { return l.target === d.id; }).transition().duration(0).attr("x2", d.fx).attr("y2", d.fy);
 
-  }
+
+}
 
   function dragended(d) {
-      if (!d3.event.active)
-          d.fx = null;
-          d.fy = null;
-      d3.select(this).classed("active", false);
-  }
+    // run the iteration and restart timer to dynamically re-arrange the graph
+    // when drag stops
+      d.x = d.fx
+      d.y = d.fy
+      Iter(iteration)
+      timer.restart(ticked)
+      if (!d3.event.active) //cool()
+      d.fx = null;
+      d.fy = null;
 
-  // function ticked() {
-  //
-  //   link
-  //       .attr("x1", d => d.source.x)
-  //       .attr("y1", d => d.source.y)
-  //       .attr("x2", d => d.target.x)
-  //       .attr("y2", d => d.target.y);
-  //
-  //   node
-  //       .attr("cx", d => d.x)
-  //       .attr("cy", d => d.y);
-  // }
-
-
+}
 
 
 // calculate repulsive force between each node and every other node
 
-  function calculateDelta(d, v) {
-      // console.log(d, v)
-      arr = []
-      arr[0] = d.x - v.x;
-      arr[1] = d.y - v.y;
-      return arr
+  function calculateDelta(v, u) {
+
+      return [v.x - u.x, v.y - u.y];
   }
 
   function norm2D (arr){
-    var sum =0;
-    for (var i=0; i< arr.length; i++){
-      sum += Math.pow(arr[i], 2)
-    }
-    return Math.sqrt(sum)
+
+    return Math.sqrt(arr[0]*arr[0]+arr[1]*arr[1]);
+
   }
 
-  function div(delta, norm){
-    var arr = []
-
-    for (var i=0; i < delta.length; i++){
-        arr[i] = delta[i] / norm
-    }
-    return arr
-  }
 
   function multi(array, num){
     var arr = []
@@ -192,29 +200,10 @@ const nodes = data.nodes.map(d => Object.create(d));
 
   }
 
- function add (arr1, arr2){
-
-   var arr  = []
-
-   for (var i=0; i < arr1.length; i++){
-      arr[i] = arr1[i] + arr2[i]
-   }
-   return arr
- }
-
- function sub (arr1, arr2){
-
-   var arr  = []
-
-   for (var i=0; i < arr1.length; i++){
-      arr[i] = arr1[i] - arr2[i]
-   }
-   return arr
- }
 
  function obtainNodeIndex(n){
 
-   index = nodes.findIndex((d)=>d.id == n)
+   var index = nodes.findIndex((d)=>d.id === n)
 
    return index
  }
@@ -222,59 +211,74 @@ const nodes = data.nodes.map(d => Object.create(d));
 
   function calculateDispByRepulsive(v){
 
-    nodes.forEach((d)=> {
-      if(d.id != v.id){
-        var delta = calculateDelta(v, d)
+    nodes.forEach((u)=> {
+      if(u.id != v.id){
+        var delta = calculateDelta(v, u)
         var norm = norm2D(delta)
         if(norm != 0){
-           v.disp = add (v.disp, multi(div(delta, norm), repulsive(norm)))
+           var d = repulsive(norm, k);
+           v.disp[0] += delta[0]/norm*d;
+           v.disp[1] += delta[1]/norm*d;
+
         }
       }
     })
+
   }
 
   //attractive force between linked nodes
   function calculateDispByAttractive(edge) {
-   // console.log(edge)
+
     var sourceIdx = obtainNodeIndex(edge.source)
     var targetIdx = obtainNodeIndex(edge.target)
-   // console.log(sourceIdx, targetIdx)
+
     var delta = calculateDelta(nodes[sourceIdx], nodes[targetIdx])
 
     var norm = norm2D(delta)
 
     if (norm != 0){
-        nodes[sourceIdx].disp = sub(nodes[sourceIdx].disp, multi(div(delta, norm), attractive(norm)))
-        nodes[targetIdx].disp = add(nodes[targetIdx].disp, multi(div(delta, norm), attractive(norm)))
+        var d = attractive(norm, k);
+
+        nodes[sourceIdx].disp[0] -= delta[0]/norm*d;
+        nodes[sourceIdx].disp[1] -= delta[1]/norm*d;
+        nodes[targetIdx].disp[0] += delta[0]/norm*d;
+        nodes[targetIdx].disp[1] += delta[1]/norm*d;
+
+
+
     }
-    // nodes.forEach((d)=> console.log(d))
+
   }
 
   // update position
   function updatePosition(n){
 
+
       var disp = norm2D(n.disp)
+
+
 
       if(disp != 0){
 
-        //var abs_disp = Math.abs(n.disp[0]/n.disp[1])
-        var temp =  multi(div(n.disp, norm2D(n.disp)), Math.min(norm2D(n.disp), t))
-        n.x += temp[0]
-        n.y += temp[1]
-        x = Math.min(width/2, Math.max(-(width/2), n.x))
-        y = Math.min(height/2, Math.max(-(height/2), n.y))
+
+        var d = Math.min(disp, t)/disp
+
+
+        var arr = multi(n.disp, d)
+        var x = n.x + arr[0]
+        var y = n.y + arr[1]
+
+        x =  Math.min(width, Math.max(0,x)) - width/2
+        y =  Math.min(height,Math.max(0,y)) - height/2
+
 
         n.x = Math.min(Math.sqrt(width*width/4-y*y),Math.max(-Math.sqrt(width*width/4-y*y),x)) + width/2
         n.y = Math.min(Math.sqrt(height*height/4-x*x),Math.max(-Math.sqrt(height*height/4-x*x),y)) + height/2
 
+
+
   }
 }
-
-  function cool() {
-
-    t -= t/(iteration + 1)
-
-  }
 
 
 })
